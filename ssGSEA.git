@@ -1,0 +1,47 @@
+### Load required libraries
+library(tidyverse)
+library(GSEABase)
+library(readr)
+library(tidyverse)
+library(dplyr)
+### Load the Dataset #####
+## The Gene Expression Dataset ###### 
+#### The Clinical Benefits vs No Dataset ####
+exp_tbl <- read.table("path of dataset/gene_expression.tsv", header=T)
+
+# gene_sets: A named list object with character vectors indicating 
+#            gene sets for which ssGSEA scores are to be computed.
+
+get_ssgsea_table <- function(X, gene_sets) {
+  if (is.data.frame(X)) {
+    X <- X %>%
+      tibble::column_to_rownames(colnames(.)[[1]]) %>%
+      as.data.frame() %>%
+      as.matrix()
+  }
+  stopifnot(!any(duplicated(rownames(X))), is.numeric(X))
+  
+  # Remove genes w/constant expression
+  #gene_sdev <- apply(X, MARGIN = 1, FUN = stats::sd)
+  #X <- X[gene_sdev != 0, , drop = FALSE]
+  
+  set.seed(1)
+  ssgsea_tab <- GSVA::gsva(expr = X, gset.idx.list = gene_sets,
+                           method = 'ssgsea', kcdf = "Gaussian",
+                           verbose=FALSE) %>%
+    t() %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column(var = "sample_id") %>%
+    tibble::as_tibble()
+
+  return(ssgsea_tab)
+}
+
+## Stemness signature from PNAS paper
+# https://www.pnas.org/doi/suppl/10.1073/pnas.1818210116#supplementary-materials
+# Supplementary file 1 (Dataset_S01 (XLSX))
+#geneSets <- getGmt("path to gmt file/stemness_PNAS_paper_desktop.gmt") # .txt can works as well
+
+newtable4 <- get_ssgsea_table(X = exp_tbl, gene_sets = geneSets)
+## saving the results 
+write.table(newtable4, file="/path to saved data file/ssGSEA.tsv", sep="\t", row.names = FALSE)
